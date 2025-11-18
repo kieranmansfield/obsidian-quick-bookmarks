@@ -1,11 +1,11 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
-	"version": "1.0.0",
+	"id": "quick-bookmarks-plugin",
+	"name": "Quick Bookmarks",
+	"version": "0.0.1",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"description": "Quickly access Obsidian bookmarks through a fuzzy search modal.",
+	"author": "Kieran Mansfield",
+	"authorUrl": "https://kieranmansfield.com",
+	"fundingUrl": "https://github.com/kieranmansfield/obsidian-quick-bookmarks",
 	"isDesktopOnly": false
 }
