@@ -1,5 +1,6 @@
 import {
 	App,
+	Command,
 	FuzzySuggestModal,
 	Plugin,
 	PluginSettingTab,
@@ -8,12 +9,57 @@ import {
 	TFolder,
 } from "obsidian";
 
+// Type definitions for Obsidian's internal bookmark plugin API
+interface InternalBookmarkItem {
+	type: "file" | "folder" | "search" | "group";
+	title?: string;
+	path?: string;
+	query?: string;
+	items?: InternalBookmarkItem[];
+}
+
+interface InternalBookmarksPluginInstance {
+	items: InternalBookmarkItem[];
+}
+
+interface InternalBookmarksPlugin {
+	enabled: boolean;
+	instance?: InternalBookmarksPluginInstance;
+}
+
+interface InternalFileExplorerInstance {
+	revealInFolder(folder: TFolder): void;
+}
+
+interface InternalGlobalSearchInstance {
+	openGlobalSearch(query: string): void;
+}
+
+interface InternalPlugins {
+	plugins: {
+		bookmarks?: InternalBookmarksPlugin;
+		"file-explorer"?: {
+			instance: InternalFileExplorerInstance;
+		};
+		"global-search"?: {
+			instance: InternalGlobalSearchInstance;
+		};
+	};
+}
+
+interface ObsidianAppWithInternals extends App {
+	internalPlugins?: InternalPlugins;
+	commands?: {
+		removeCommand(id: string): void;
+	};
+}
+
 interface BookmarkItem {
 	type: string;
 	title: string;
 	path?: string;
 	query?: string;
-	items?: any[];
+	items?: InternalBookmarkItem[];
 }
 
 interface QuickBookmarksSettings {
@@ -29,8 +75,10 @@ const DEFAULT_SETTINGS: QuickBookmarksSettings = {
 };
 
 export default class QuickBookmarksPlugin extends Plugin {
-	settings: QuickBookmarksSettings;
-	groupCommands: Map<string, any> = new Map();
+	settings!: QuickBookmarksSettings;
+	groupCommands: Map<string, Command> = new Map();
+
+	declare app: ObsidianAppWithInternals;
 
 	async onload() {
 		await this.loadSettings();
@@ -38,12 +86,6 @@ export default class QuickBookmarksPlugin extends Plugin {
 		this.addCommand({
 			id: "open-bookmarks-search",
 			name: "Open bookmarks search",
-			hotkeys: [
-				{
-					modifiers: ["Mod"],
-					key: "m",
-				},
-			],
 			callback: () => {
 				new BookmarksSearchModal(this.app, this).open();
 			},
@@ -53,10 +95,9 @@ export default class QuickBookmarksPlugin extends Plugin {
 		this.addSettingTab(new QuickBookmarksSettingTab(this.app, this));
 	}
 
-	getBookmarkGroups(): Array<{ title: string; items: any[] }> {
-		const groups: Array<{ title: string; items: any[] }> = [];
-		const bookmarkPlugin = (this.app as any).internalPlugins?.plugins
-			?.bookmarks;
+	getBookmarkGroups(): Array<{ title: string; items: InternalBookmarkItem[] }> {
+		const groups: Array<{ title: string; items: InternalBookmarkItem[] }> = [];
+		const bookmarkPlugin = this.app.internalPlugins?.plugins?.bookmarks;
 
 		if (!bookmarkPlugin || !bookmarkPlugin.enabled) {
 			return groups;
@@ -67,10 +108,10 @@ export default class QuickBookmarksPlugin extends Plugin {
 			return groups;
 		}
 
-		bookmarkItems.forEach((item: any) => {
+		bookmarkItems.forEach((item) => {
 			if (item.type === "group") {
 				groups.push({
-					title: item.title,
+					title: item.title || "",
 					items: item.items || [],
 				});
 			}
@@ -82,7 +123,7 @@ export default class QuickBookmarksPlugin extends Plugin {
 	registerGroupCommands() {
 		// Remove existing group commands
 		this.groupCommands.forEach((command, id) => {
-			(this.app as any).commands.removeCommand(
+			this.app.commands?.removeCommand(
 				`${this.manifest.id}:${id}`
 			);
 		});
@@ -132,8 +173,7 @@ export default class QuickBookmarksPlugin extends Plugin {
 			type: string;
 			path?: string;
 		}> = [];
-		const bookmarkPlugin = (this.app as any).internalPlugins?.plugins
-			?.bookmarks;
+		const bookmarkPlugin = this.app.internalPlugins?.plugins?.bookmarks;
 
 		if (!bookmarkPlugin || !bookmarkPlugin.enabled) {
 			return allBookmarks;
@@ -144,13 +184,13 @@ export default class QuickBookmarksPlugin extends Plugin {
 			return allBookmarks;
 		}
 
-		const processItem = (item: any, parentPath = "") => {
+		const processItem = (item: InternalBookmarkItem, parentPath = "") => {
 			if (item.type === "group") {
 				const groupTitle = parentPath
-					? `${parentPath} > ${item.title}`
-					: item.title;
+					? `${parentPath} > ${item.title || ""}`
+					: item.title || "";
 				if (item.items) {
-					item.items.forEach((child: any) =>
+					item.items.forEach((child) =>
 						processItem(child, groupTitle)
 					);
 				}
@@ -168,11 +208,11 @@ export default class QuickBookmarksPlugin extends Plugin {
 			}
 		};
 
-		bookmarkItems.forEach((item: any) => processItem(item));
+		bookmarkItems.forEach((item) => processItem(item));
 		return allBookmarks;
 	}
 
-	getBookmarkId(item: any): string {
+	getBookmarkId(item: InternalBookmarkItem): string {
 		// Create a unique ID for each bookmark based on type and path/query
 		if (item.type === "file" && item.path) {
 			return `file:${item.path}`;
@@ -184,12 +224,12 @@ export default class QuickBookmarksPlugin extends Plugin {
 		return "";
 	}
 
-	isBookmarkIgnored(item: any): boolean {
+	isBookmarkIgnored(item: InternalBookmarkItem): boolean {
 		const id = this.getBookmarkId(item);
 		return this.settings.ignoredBookmarks.includes(id);
 	}
 
-	getDisplayName(item: any): string {
+	getDisplayName(item: InternalBookmarkItem): string {
 		// Use custom title if available
 		if (item.title) {
 			return item.title;
@@ -220,7 +260,7 @@ export default class QuickBookmarksPlugin extends Plugin {
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
-			await this.loadData()
+			(await this.loadData()) as Partial<QuickBookmarksSettings> | undefined
 		);
 	}
 
@@ -234,16 +274,18 @@ class BookmarksSearchModal extends FuzzySuggestModal<BookmarkItem> {
 	plugin: QuickBookmarksPlugin;
 	parentPath: string;
 
+	override app: ObsidianAppWithInternals;
+
 	constructor(app: App, plugin: QuickBookmarksPlugin, parentPath = "") {
 		super(app);
 		this.plugin = plugin;
 		this.parentPath = parentPath;
+		this.app = app as ObsidianAppWithInternals;
 	}
 
 	getItems(): BookmarkItem[] {
 		const bookmarks: BookmarkItem[] = [];
-		const bookmarkPlugin = (this.app as any).internalPlugins?.plugins
-			?.bookmarks;
+		const bookmarkPlugin = this.app.internalPlugins?.plugins?.bookmarks;
 
 		if (!bookmarkPlugin || !bookmarkPlugin.enabled) {
 			return bookmarks;
@@ -257,22 +299,22 @@ class BookmarksSearchModal extends FuzzySuggestModal<BookmarkItem> {
 		const useSeparateModals =
 			this.plugin.settings.groupHandling === "separate";
 
-		const processBookmarkItem = (item: any, parentPath = "") => {
+		const processBookmarkItem = (item: InternalBookmarkItem, parentPath = "") => {
 			if (item.type === "group") {
 				if (useSeparateModals) {
 					// In separate mode, add groups as navigable items
 					bookmarks.push({
 						type: "group",
-						title: item.title,
+						title: item.title || "",
 						items: item.items,
 					});
 				} else {
 					// In flatten mode, process children with group path
 					const groupTitle = parentPath
-						? `${parentPath} > ${item.title}`
-						: item.title;
+						? `${parentPath} > ${item.title || ""}`
+						: item.title || "";
 					if (item.items) {
-						item.items.forEach((child: any) =>
+						item.items.forEach((child) =>
 							processBookmarkItem(child, groupTitle)
 						);
 					}
@@ -313,7 +355,7 @@ class BookmarksSearchModal extends FuzzySuggestModal<BookmarkItem> {
 			}
 		};
 
-		bookmarkItems.forEach((item: any) => processBookmarkItem(item));
+		bookmarkItems.forEach((item) => processBookmarkItem(item));
 		return bookmarks;
 	}
 
@@ -333,19 +375,19 @@ class BookmarksSearchModal extends FuzzySuggestModal<BookmarkItem> {
 		} else if (item.type === "file" && item.path) {
 			const file = this.app.vault.getAbstractFileByPath(item.path);
 			if (file instanceof TFile) {
-				this.app.workspace.getLeaf().openFile(file);
+				void this.app.workspace.getLeaf().openFile(file);
 			}
 		} else if (item.type === "folder" && item.path) {
 			const folder = this.app.vault.getAbstractFileByPath(item.path);
 			if (folder instanceof TFolder) {
-				(this.app as any).internalPlugins.plugins[
+				this.app.internalPlugins?.plugins[
 					"file-explorer"
-				].instance.revealInFolder(folder);
+				]?.instance.revealInFolder(folder);
 			}
 		} else if (item.type === "search" && item.query) {
-			(this.app as any).internalPlugins.plugins[
+			this.app.internalPlugins?.plugins[
 				"global-search"
-			].instance.openGlobalSearch(item.query);
+			]?.instance.openGlobalSearch(item.query);
 		}
 	}
 }
@@ -353,32 +395,35 @@ class BookmarksSearchModal extends FuzzySuggestModal<BookmarkItem> {
 class BookmarkGroupModal extends FuzzySuggestModal<BookmarkItem> {
 	plugin: QuickBookmarksPlugin;
 	groupTitle: string;
-	groupItems: any[];
+	groupItems: InternalBookmarkItem[];
+
+	override app: ObsidianAppWithInternals;
 
 	constructor(
 		app: App,
 		plugin: QuickBookmarksPlugin,
 		groupTitle: string,
-		groupItems: any[]
+		groupItems: InternalBookmarkItem[]
 	) {
 		super(app);
 		this.plugin = plugin;
 		this.groupTitle = groupTitle;
 		this.groupItems = groupItems;
 		this.setPlaceholder(`Search in ${groupTitle}...`);
+		this.app = app as ObsidianAppWithInternals;
 	}
 
 	getItems(): BookmarkItem[] {
 		const bookmarks: BookmarkItem[] = [];
 
-		const processBookmarkItem = (item: any, parentPath = "") => {
+		const processBookmarkItem = (item: InternalBookmarkItem, parentPath = "") => {
 			if (item.type === "group") {
 				// Nested groups - add as navigable items
 				bookmarks.push({
 					type: "group",
 					title: parentPath
-						? `${parentPath} > ${item.title}`
-						: item.title,
+						? `${parentPath} > ${item.title || ""}`
+						: item.title || "",
 					items: item.items,
 				});
 			} else if (item.type === "file") {
@@ -417,7 +462,7 @@ class BookmarkGroupModal extends FuzzySuggestModal<BookmarkItem> {
 			}
 		};
 
-		this.groupItems.forEach((item: any) => processBookmarkItem(item));
+		this.groupItems.forEach((item) => processBookmarkItem(item));
 		return bookmarks;
 	}
 
@@ -437,19 +482,19 @@ class BookmarkGroupModal extends FuzzySuggestModal<BookmarkItem> {
 		} else if (item.type === "file" && item.path) {
 			const file = this.app.vault.getAbstractFileByPath(item.path);
 			if (file instanceof TFile) {
-				this.app.workspace.getLeaf().openFile(file);
+				void this.app.workspace.getLeaf().openFile(file);
 			}
 		} else if (item.type === "folder" && item.path) {
 			const folder = this.app.vault.getAbstractFileByPath(item.path);
 			if (folder instanceof TFolder) {
-				(this.app as any).internalPlugins.plugins[
+				this.app.internalPlugins?.plugins[
 					"file-explorer"
-				].instance.revealInFolder(folder);
+				]?.instance.revealInFolder(folder);
 			}
 		} else if (item.type === "search" && item.query) {
-			(this.app as any).internalPlugins.plugins[
+			this.app.internalPlugins?.plugins[
 				"global-search"
-			].instance.openGlobalSearch(item.query);
+			]?.instance.openGlobalSearch(item.query);
 		}
 	}
 }
@@ -466,12 +511,12 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl("h2", { text: "Quick Bookmarks Settings" });
+		;
 
 		new Setting(containerEl)
 			.setName("Group handling")
 			.setDesc(
-				"Choose how to display bookmark groups. 'Separate modals' opens a new search for each group. 'Flatten all' shows all bookmarks with their group path."
+				"Choose how to display bookmark groups: 'separate modals' opens a new search for each group, while 'flatten all' shows all bookmarks with their group path."
 			)
 			.addDropdown((dropdown) =>
 				dropdown
@@ -486,7 +531,7 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 					})
 			);
 
-		containerEl.createEl("h3", { text: "Group Commands" });
+		new Setting(containerEl).setName("Group commands").setHeading();
 		containerEl.createEl("p", {
 			text: "Enable separate commands for specific bookmark groups. These commands will appear in the command palette.",
 			cls: "setting-item-description",
@@ -496,7 +541,7 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 
 		if (groups.length === 0) {
 			containerEl.createEl("p", {
-				text: "No bookmark groups found. Create groups in the Bookmarks core plugin to enable group commands.",
+				text: "No bookmark groups found; create groups in the bookmarks core plugin to enable group commands.",
 				cls: "setting-item-description",
 			});
 		} else {
@@ -521,7 +566,7 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 			});
 		}
 
-		containerEl.createEl("h3", { text: "Ignored Bookmarks" });
+		new Setting(containerEl).setName("Ignored bookmarks").setHeading();
 		containerEl.createEl("p", {
 			text: "Select bookmarks to hide from the search modal. Ignored bookmarks will not appear in search results.",
 			cls: "setting-item-description",
@@ -531,7 +576,7 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 
 		if (allBookmarks.length === 0) {
 			containerEl.createEl("p", {
-				text: "No bookmarks found. Add bookmarks in the Bookmarks core plugin to manage them here.",
+				text: "No bookmarks found; add bookmarks in the bookmarks core plugin to manage them here.",
 				cls: "setting-item-description",
 			});
 		} else {
