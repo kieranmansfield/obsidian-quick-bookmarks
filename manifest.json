@@ -1,8 +1,8 @@
 {
 	"id": "quick-bookmarks-plugin",
 	"name": "Quick Bookmarks",
-	"version": "0.0.1",
-	"minAppVersion": "0.15.0",
+	"version": "1.0.0",
+	"minAppVersion": "1.11.0",
 	"description": "Quickly access Obsidian bookmarks through a fuzzy search modal.",
 	"author": "Kieran Mansfield",
 	"authorUrl": "https://kieranmansfield.com",

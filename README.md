@@ -1,94 +1,186 @@
-# Obsidian Sample Plugin
+# Quick Bookmarks for Obsidian
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+Quickly access your Obsidian bookmarks through a fuzzy search interface. This plugin integrates with Obsidian's core Bookmarks plugin to provide fast, keyboard-driven access to all your bookmarked files, folders, searches, and bookmark groups.
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+## Features
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open Sample Modal" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+### 🔍 Fuzzy Search Modal
 
-## First time developing plugins?
+Access all your bookmarks through a searchable modal with fuzzy matching:
 
-Quick starting guide for new plugin devs:
+-   **Default hotkey**: `Cmd+M` (Mac) / `Ctrl+M` (Windows/Linux)
+-   Search across all bookmark types: files, folders, searches, and groups
+-   Navigate nested groups with breadcrumb paths
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+### 📁 Group Handling Modes
 
-## Releasing new releases
+Choose how bookmark groups are displayed:
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+**Separate Modals** (default)
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+-   Groups appear as items in the main search
+-   Selecting a group opens a new focused search modal
+-   Ideal for organized bookmark collections
 
-## Adding your plugin to the community plugin list
+**Flatten All**
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+-   All bookmarks shown in one list with group paths
+-   Example: "Work > Projects > Project A.md"
+-   Ideal for quick access across all bookmarks
 
-## How to use
+### ⚡ Per-Group Commands
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+Create dedicated commands for specific bookmark groups:
 
-## Manually installing the plugin
+-   Enable commands for frequently-used groups
+-   Each enabled group gets its own command in the command palette
+-   Example: "Open group: Daily Notes" as a standalone command
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+### 🚫 Hide Bookmarks
 
-## Improve code quality with eslint (optional)
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- To use eslint with this project, make sure to install eslint from terminal:
-  - `npm install -g eslint`
-- To use eslint to analyze this project use this command:
-  - `eslint main.ts`
-  - eslint will then create a report with suggestions for code improvement by file and line number.
-- If your source code is in a folder, such as `src`, you can use eslint with this command to analyze all files in that folder:
-  - `eslint ./src/`
+Selectively hide bookmarks from search results:
 
-## Funding URL
+-   Toggle visibility for individual bookmarks
+-   Hidden bookmarks won't appear in search modals
+-   Useful for archival or organizational bookmarks
 
-You can include funding URLs where people who use your plugin can financially support it.
+## Installation
 
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
+### From Obsidian Community Plugins (When Available)
 
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
+1. Open **Settings** → **Community plugins**
+2. Disable **Restricted mode** if enabled
+3. Click **Browse** and search for "Quick Bookmarks"
+4. Click **Install**, then **Enable**
+
+### Manual Installation
+
+1. Download the latest release from the [Releases page](https://github.com/kieranmansfield/obsidian-quick-bookmarks/releases)
+2. Extract the files to your vault's plugins folder:
+    ```
+    <vault>/.obsidian/plugins/obsidian-quick-bookmarks/
+    ```
+3. The folder should contain:
+    - `main.js`
+    - `manifest.json`
+    - `styles.css` (if present)
+4. Reload Obsidian
+5. Enable the plugin in **Settings** → **Community plugins**
+
+### Development Installation
+
+If you're developing or testing:
+
+1. Clone this repository into your vault's plugins folder:
+    ```bash
+    cd <vault>/.obsidian/plugins/
+    git clone https://github.com/kieranmansfield/obsidian-quick-bookmarks.git
+    cd obsidian-quick-bookmarks
+    ```
+2. Install dependencies:
+    ```bash
+    npm install
+    ```
+3. Build the plugin:
+    ```bash
+    npm run dev
+    ```
+4. Reload Obsidian and enable the plugin
+
+## Usage
+
+### Basic Search
+
+1. Press `Cmd+M` (Mac) or `Ctrl+M` (Windows/Linux)
+2. Type to search your bookmarks
+3. Press `Enter` to open the selected bookmark
+
+### Bookmark Types
+
+The plugin supports all bookmark types from the core Bookmarks plugin:
+
+-   **Files**: Opens the file in the active pane
+-   **Folders**: Reveals the folder in the file explorer
+-   **Searches**: Executes the search in global search
+-   **Groups**: Opens a new search modal for that group (in "Separate" mode)
+
+### Configuration
+
+Access settings in **Settings** → **Quick Bookmarks**:
+
+#### Group Handling
+
+Choose between:
+
+-   **Separate modals**: Navigate groups hierarchically
+-   **Flatten all**: Show all bookmarks with full paths
+
+#### Group Commands
+
+Enable standalone commands for specific bookmark groups. Each enabled group will appear in the command palette.
+
+#### Ignored Bookmarks
+
+Toggle visibility for individual bookmarks. Hidden bookmarks are excluded from all search modals.
+
+## Requirements
+
+-   Obsidian v0.15.0 or higher
+-   Core **Bookmarks** plugin must be enabled
+
+## Development
+
+### Building
+
+```bash
+# Development mode (watch for changes)
+npm run dev
+
+# Production build
+npm run build
+
+# Type check
+npm run build  # Includes tsc -noEmit
+
+# Update dependencies
+npm run update
 ```
 
-If you have multiple URLs, you can also do:
+### Project Structure
 
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
-```
+-   `main.ts` - Plugin source code
+-   `manifest.json` - Plugin metadata
+-   `styles.css` - Plugin styles
+-   `esbuild.config.mjs` - Build configuration
 
-## API Documentation
+### Release Process
 
-See https://github.com/obsidianmd/obsidian-api
+1. Update version in `manifest.json` and `package.json`
+2. Update `minAppVersion` in `manifest.json` if needed
+3. Run `npm version patch/minor/major` to update version files
+4. Create a GitHub release with tag matching the version number
+5. Attach `manifest.json`, `main.js`, and `styles.css` as release assets
+
+## Support
+
+-   **Issues**: [GitHub Issues](https://github.com/kieranmansfield/obsidian-quick-bookmarks/issues)
+-   **Discussions**: [GitHub Discussions](https://github.com/kieranmansfield/obsidian-quick-bookmarks/discussions)
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests.
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## Author
+
+**Kieran Mansfield**
+
+-   Website: [kieranmansfield.com](https://kieranmansfield.com)
+-   GitHub: [@kieranmansfield](https://github.com/kieranmansfield)
+
+## Acknowledgments
+
+Built with the [Obsidian Plugin Template](https://github.com/obsidianmd/obsidian-sample-plugin) and powered by the [Obsidian API](https://github.com/obsidianmd/obsidian-api).
