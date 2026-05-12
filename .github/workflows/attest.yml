@@ -13,6 +13,12 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm run build
+      - run: ls -la main.js
       - uses: actions/attest@v4.1.0
         with:
-          subject-path: '${{ github.workspace }}/main.js'
+          subject-path: main.js
