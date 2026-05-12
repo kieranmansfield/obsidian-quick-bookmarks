@@ -1,0 +1,9 @@
+name: Attest
+on: [push, pull_request]
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/attest@v4.1.0
