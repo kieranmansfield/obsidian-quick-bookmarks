@@ -1,9 +1,13 @@
 name: Attest
 on: [push, pull_request]
+permissions:
+  id-token: write
 
 jobs:
   attest:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/attest@v4.1.0
