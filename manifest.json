@@ -1,7 +1,7 @@
 {
 	"id": "quick-bookmarks",
 	"name": "Quick Bookmarks",
-	"version": "1.0.4",
+	"version": "1.0.5",
 	"minAppVersion": "1.11.0",
 	"description": "Quickly access bookmarks through a fuzzy search modal.",
 	"author": "Kieran Mansfield",
