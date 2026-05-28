@@ -10,13 +10,13 @@ Quick Bookmarks is an Obsidian plugin that provides fuzzy search access to bookm
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Development mode (watch for changes and rebuild automatically)
-npm run dev
+pnpm dev
 
 # Production build (with type checking)
-npm run build
+pnpm build
 
 # Type check only
 tsc -noEmit -skipLibCheck
@@ -25,7 +25,7 @@ tsc -noEmit -skipLibCheck
 eslint main.ts
 
 # Update dependencies interactively
-npm run update
+pnpm run update
 ```
 
 ## Architecture
@@ -101,7 +101,7 @@ The main search modal command is registered with `Cmd+M` (Mac) / `Ctrl+M` (Windo
 
 ## Testing Workflow
 
-1. Run `npm run dev` to start watch mode
+1. Run `pnpm dev` to start watch mode
 2. Plugin files are in the vault's `.obsidian/plugins/obsidian-quick-bookmarks/` directory
 3. Reload Obsidian after changes (Cmd/Ctrl+R or restart)
 4. Enable plugin in Settings → Community plugins
