@@ -449,92 +449,109 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 		this.plugin = plugin
 	}
 
-	display(): void {
-		const { containerEl } = this
-		containerEl.empty()
+	// TODO: delete this stub once obsidian npm package is updated to 1.13.0 and display() is
+	// no longer abstract when getSettingDefinitions() is defined.
+	display(): void {}
 
-		new Setting(containerEl)
-			.setName('Group handling')
-			.setDesc(
-				"Choose how to display bookmark groups: 'separate modals' opens a new search for each group, while 'flatten all' shows all bookmarks with their group path."
-			)
-			.addDropdown((dropdown) =>
-				dropdown
-					.addOption('separate', 'Separate modals')
-					.addOption('flatten', 'Flatten all')
-					.setValue(this.plugin.settings.groupHandling)
-					.onChange(async (value) => {
-						this.plugin.settings.groupHandling = value as 'flatten' | 'separate'
-						await this.plugin.saveSettings()
-					})
-			)
-
-		new Setting(containerEl).setName('Group commands').setHeading()
-		containerEl.createEl('p', {
-			text: 'Enable separate commands for specific bookmark groups. These commands will appear in the command palette.',
-			cls: 'setting-item-description',
-		})
-
+	getSettingDefinitions() {
 		const groups = this.plugin.getBookmarkGroups()
-
-		if (groups.length === 0) {
-			containerEl.createEl('p', {
-				text: 'No bookmark groups found; create groups in the bookmarks core plugin to enable group commands.',
-				cls: 'setting-item-description',
-			})
-		} else {
-			groups.forEach((group) => {
-				new Setting(containerEl)
-					.setName(group.title)
-					.setDesc(`Enable command to open "${group.title}" group`)
-					.addToggle((toggle) =>
-						toggle
-							.setValue(this.plugin.settings.enabledGroupCommands[group.title] ?? false)
-							.onChange(async (value) => {
-								this.plugin.settings.enabledGroupCommands[group.title] = value
-								await this.plugin.saveSettings()
-							})
-					)
-			})
-		}
-
-		new Setting(containerEl).setName('Ignored bookmarks').setHeading()
-		containerEl.createEl('p', {
-			text: 'Select bookmarks to hide from the search modal. Ignored bookmarks will not appear in search results.',
-			cls: 'setting-item-description',
-		})
-
 		const allBookmarks = this.plugin.getAllBookmarks()
 
-		if (allBookmarks.length === 0) {
-			containerEl.createEl('p', {
-				text: 'No bookmarks found; add bookmarks in the bookmarks core plugin to manage them here.',
-				cls: 'setting-item-description',
-			})
-		} else {
-			allBookmarks.forEach((bookmark) => {
-				const typeIcon = bookmark.type === 'file' ? '📄' : bookmark.type === 'folder' ? '📁' : '🔍'
-				new Setting(containerEl).setName(`${typeIcon} ${bookmark.title}`).addToggle((toggle) =>
-					toggle
-						.setValue(this.plugin.settings.ignoredBookmarks.includes(bookmark.id))
-						.setTooltip(
-							this.plugin.settings.ignoredBookmarks.includes(bookmark.id)
-								? 'Click to show in search'
-								: 'Click to hide from search'
-						)
-						.onChange(async (value) => {
-							if (value) {
-								if (!this.plugin.settings.ignoredBookmarks.includes(bookmark.id)) {
-									this.plugin.settings.ignoredBookmarks.push(bookmark.id)
-								}
-							} else {
-								this.plugin.settings.ignoredBookmarks =
-									this.plugin.settings.ignoredBookmarks.filter((id) => id !== bookmark.id)
-							}
-							await this.plugin.saveSettings()
-						})
-				)
-			})
-		}
+		return [
+			{
+				name: 'Group handling',
+				desc: "Choose how to display bookmark groups: 'separate modals' opens a new search for each group, while 'flatten all' shows all bookmarks with their group path.",
+				control: {
+					type: 'dropdown',
+					key: 'groupHandling',
+					options: { separate: 'Separate modals', flatten: 'Flatten all' },
+				},
+			},
+			{
+				render: (el: HTMLElement) => {
+					new Setting(el).setName('Group commands').setHeading()
+					el.createEl('p', {
+						text: 'Enable separate commands for specific bookmark groups. These commands will appear in the command palette.',
+						cls: 'setting-item-description',
+					})
+				},
+			},
+			...(groups.length === 0
+				? [
+						{
+							render: (el: HTMLElement) => {
+								el.createEl('p', {
+									text: 'No bookmark groups found; create groups in the bookmarks core plugin to enable group commands.',
+									cls: 'setting-item-description',
+								})
+							},
+						},
+					]
+				: groups.map((group) => ({
+						render: (el: HTMLElement) => {
+							new Setting(el)
+								.setName(group.title)
+								.setDesc(`Enable command to open "${group.title}" group`)
+								.addToggle((toggle) =>
+									toggle
+										.setValue(this.plugin.settings.enabledGroupCommands[group.title] ?? false)
+										.onChange(async (value) => {
+											this.plugin.settings.enabledGroupCommands[group.title] = value
+											await this.plugin.saveSettings()
+										})
+								)
+						},
+					}))),
+			{
+				render: (el: HTMLElement) => {
+					new Setting(el).setName('Ignored bookmarks').setHeading()
+					el.createEl('p', {
+						text: 'Select bookmarks to hide from the search modal. Ignored bookmarks will not appear in search results.',
+						cls: 'setting-item-description',
+					})
+				},
+			},
+			...(allBookmarks.length === 0
+				? [
+						{
+							render: (el: HTMLElement) => {
+								el.createEl('p', {
+									text: 'No bookmarks found; add bookmarks in the bookmarks core plugin to manage them here.',
+									cls: 'setting-item-description',
+								})
+							},
+						},
+					]
+				: allBookmarks.map((bookmark) => ({
+						render: (el: HTMLElement) => {
+							const typeIcon =
+								bookmark.type === 'file' ? '📄' : bookmark.type === 'folder' ? '📁' : '🔍'
+							new Setting(el)
+								.setName(`${typeIcon} ${bookmark.title}`)
+								.addToggle((toggle) =>
+									toggle
+										.setValue(this.plugin.settings.ignoredBookmarks.includes(bookmark.id))
+										.setTooltip(
+											this.plugin.settings.ignoredBookmarks.includes(bookmark.id)
+												? 'Click to show in search'
+												: 'Click to hide from search'
+										)
+										.onChange(async (value) => {
+											if (value) {
+												if (!this.plugin.settings.ignoredBookmarks.includes(bookmark.id)) {
+													this.plugin.settings.ignoredBookmarks.push(bookmark.id)
+												}
+											} else {
+												this.plugin.settings.ignoredBookmarks =
+													this.plugin.settings.ignoredBookmarks.filter(
+														(id) => id !== bookmark.id
+													)
+											}
+											await this.plugin.saveSettings()
+										})
+								)
+						},
+					}))),
+		]
 	}
 }
