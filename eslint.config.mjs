@@ -18,10 +18,7 @@ export default [
 		],
 	},
 	eslint.configs.recommended,
-	...tseslint.configs.recommendedTypeChecked.map((config) => ({
-		...config,
-		files: ['**/*.ts', '**/*.tsx'],
-	})),
+	...obsidianmd.configs.recommended,
 	{
 		files: ['**/*.ts', '**/*.tsx'],
 		languageOptions: {
@@ -42,9 +39,6 @@ export default [
 				global: 'readonly',
 			},
 		},
-		plugins: {
-			obsidianmd,
-		},
 		rules: {
 			'no-unused-vars': 'off',
 			'@typescript-eslint/no-unused-vars': ['error', { args: 'none' }],
@@ -57,7 +51,6 @@ export default [
 					ignoredTypeNames: ['ZettelId'],
 				},
 			],
-			...obsidianmd.configs.recommended,
 		},
 	},
 ]

@@ -1,4 +1,13 @@
-import { App, FuzzySuggestModal, Plugin, PluginSettingTab, Setting, TFile, TFolder } from 'obsidian'
+import {
+	App,
+	FuzzySuggestModal,
+	Plugin,
+	PluginSettingTab,
+	Setting,
+	type SettingDefinitionItem,
+	TFile,
+	TFolder,
+} from 'obsidian'
 
 // Type definitions for Obsidian's internal bookmark plugin API
 type BookmarkItemType = 'file' | 'folder' | 'search' | 'group'
@@ -259,7 +268,7 @@ class BookmarksSearchModal extends FuzzySuggestModal<BookmarkItem> {
 		super(app)
 		this.plugin = plugin
 		this.parentPath = parentPath
-		this.app = app as ObsidianAppWithInternals
+		this.app = app
 	}
 
 	getItems(): BookmarkItem[] {
@@ -369,7 +378,7 @@ class BookmarkGroupModal extends FuzzySuggestModal<BookmarkItem> {
 		this.groupTitle = groupTitle
 		this.groupItems = groupItems
 		this.setPlaceholder(`Search in ${groupTitle}...`)
-		this.app = app as ObsidianAppWithInternals
+		this.app = app
 	}
 
 	getItems(): BookmarkItem[] {
@@ -539,7 +548,7 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 		}
 	}
 
-	getSettingDefinitions() {
+	getSettingDefinitions(): SettingDefinitionItem[] {
 		const groups = this.plugin.getBookmarkGroups()
 		const allBookmarks = this.plugin.getAllBookmarks()
 
@@ -554,90 +563,70 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 				},
 			},
 			{
-				render: (el: HTMLElement) => {
-					new Setting(el).setName('Group commands').setHeading()
-					el.createEl('p', {
-						text: 'Enable separate commands for specific bookmark groups. These commands will appear in the command palette.',
-						cls: 'setting-item-description',
-					})
-				},
+				type: 'group',
+				heading: 'Group commands',
+				items:
+					groups.length === 0
+						? [
+								{
+									name: 'No bookmark groups found',
+									desc: 'Create groups in the bookmarks core plugin to enable group commands.',
+								},
+							]
+						: groups.map((group) => ({
+								name: group.title,
+								desc: `Enable command to open "${group.title}" group`,
+								render: (setting: Setting) => {
+									setting.addToggle((toggle) =>
+										toggle
+											.setValue(this.plugin.settings.enabledGroupCommands[group.title] ?? false)
+											.onChange(async (value) => {
+												this.plugin.settings.enabledGroupCommands[group.title] = value
+												await this.plugin.saveSettings()
+											})
+									)
+								},
+							})),
 			},
-			...(groups.length === 0
-				? [
-						{
-							render: (el: HTMLElement) => {
-								el.createEl('p', {
-									text: 'No bookmark groups found; create groups in the bookmarks core plugin to enable group commands.',
-									cls: 'setting-item-description',
-								})
-							},
-						},
-					]
-				: groups.map((group) => ({
-						render: (el: HTMLElement) => {
-							new Setting(el)
-								.setName(group.title)
-								.setDesc(`Enable command to open "${group.title}" group`)
-								.addToggle((toggle) =>
-									toggle
-										.setValue(this.plugin.settings.enabledGroupCommands[group.title] ?? false)
-										.onChange(async (value) => {
-											this.plugin.settings.enabledGroupCommands[group.title] = value
-											await this.plugin.saveSettings()
-										})
-								)
-						},
-					}))),
 			{
-				render: (el: HTMLElement) => {
-					new Setting(el).setName('Ignored bookmarks').setHeading()
-					el.createEl('p', {
-						text: 'Select bookmarks to hide from the search modal. Ignored bookmarks will not appear in search results.',
-						cls: 'setting-item-description',
-					})
-				},
-			},
-			...(allBookmarks.length === 0
-				? [
-						{
-							render: (el: HTMLElement) => {
-								el.createEl('p', {
-									text: 'No bookmarks found; add bookmarks in the bookmarks core plugin to manage them here.',
-									cls: 'setting-item-description',
-								})
-							},
-						},
-					]
-				: allBookmarks.map((bookmark) => ({
-						render: (el: HTMLElement) => {
-							const typeIcon =
-								bookmark.type === 'file' ? '📄' : bookmark.type === 'folder' ? '📁' : '🔍'
-							new Setting(el)
-								.setName(`${typeIcon} ${bookmark.title}`)
-								.addToggle((toggle) =>
-									toggle
-										.setValue(this.plugin.settings.ignoredBookmarks.includes(bookmark.id))
-										.setTooltip(
-											this.plugin.settings.ignoredBookmarks.includes(bookmark.id)
-												? 'Click to show in search'
-												: 'Click to hide from search'
-										)
-										.onChange(async (value) => {
-											if (value) {
-												if (!this.plugin.settings.ignoredBookmarks.includes(bookmark.id)) {
-													this.plugin.settings.ignoredBookmarks.push(bookmark.id)
+				type: 'group',
+				heading: 'Ignored bookmarks',
+				items:
+					allBookmarks.length === 0
+						? [
+								{
+									name: 'No bookmarks found',
+									desc: 'Add bookmarks in the bookmarks core plugin to manage them here.',
+								},
+							]
+						: allBookmarks.map((bookmark) => ({
+								name: `${bookmark.type === 'file' ? '📄' : bookmark.type === 'folder' ? '📁' : '🔍'} ${bookmark.title}`,
+								render: (setting: Setting) => {
+									setting.addToggle((toggle) =>
+										toggle
+											.setValue(this.plugin.settings.ignoredBookmarks.includes(bookmark.id))
+											.setTooltip(
+												this.plugin.settings.ignoredBookmarks.includes(bookmark.id)
+													? 'Click to show in search'
+													: 'Click to hide from search'
+											)
+											.onChange(async (value) => {
+												if (value) {
+													if (!this.plugin.settings.ignoredBookmarks.includes(bookmark.id)) {
+														this.plugin.settings.ignoredBookmarks.push(bookmark.id)
+													}
+												} else {
+													this.plugin.settings.ignoredBookmarks =
+														this.plugin.settings.ignoredBookmarks.filter(
+															(id) => id !== bookmark.id
+														)
 												}
-											} else {
-												this.plugin.settings.ignoredBookmarks =
-													this.plugin.settings.ignoredBookmarks.filter(
-														(id) => id !== bookmark.id
-													)
-											}
-											await this.plugin.saveSettings()
-										})
-								)
-						},
-					}))),
+												await this.plugin.saveSettings()
+											})
+									)
+								},
+							})),
+			},
 		]
 	}
 }
