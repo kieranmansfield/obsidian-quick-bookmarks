@@ -158,7 +158,6 @@ export default class QuickBookmarksPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings)
-		this.registerGroupCommands()
 	}
 }
 
@@ -307,6 +306,7 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 							.onChange(async (value) => {
 								this.plugin.settings.enabledGroupCommands[group.title] = value
 								await this.plugin.saveSettings()
+								this.plugin.registerGroupCommands()
 							})
 					)
 			})
@@ -390,6 +390,7 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 											.onChange(async (value) => {
 												this.plugin.settings.enabledGroupCommands[group.title] = value
 												await this.plugin.saveSettings()
+												this.plugin.registerGroupCommands()
 											})
 									)
 								},
