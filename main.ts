@@ -7,9 +7,12 @@ import {
 	type SettingDefinitionItem,
 	TFile,
 	TFolder,
+	type ToggleComponent,
 } from 'obsidian'
 import {
 	type BookmarkItem,
+	bookmarkTypeIcon,
+	type BookmarkItemType,
 	buildBookmarkItems,
 	getBookmarkId,
 	getBookmarkItems,
@@ -131,7 +134,7 @@ export default class QuickBookmarksPlugin extends Plugin {
 	getAllBookmarks(): Array<{
 		id: string
 		title: string
-		type: string
+		type: BookmarkItemType
 		path?: string
 	}> {
 		// Settings tab needs every bookmark, including ignored ones, so they can be toggled back on.
@@ -253,6 +256,48 @@ class BookmarkGroupModal extends FuzzySuggestModal<BookmarkItem> {
 	}
 }
 
+function configureGroupToggle(
+	toggle: ToggleComponent,
+	group: { title: string },
+	plugin: QuickBookmarksPlugin
+): ToggleComponent {
+	return toggle.setValue(plugin.settings.enabledGroupCommands[group.title] ?? false).onChange(async (value) => {
+		plugin.settings.enabledGroupCommands[group.title] = value
+		await plugin.saveSettings()
+		plugin.registerGroupCommands()
+	})
+}
+
+function configureIgnoreToggle(
+	toggle: ToggleComponent,
+	bookmark: { id: string },
+	plugin: QuickBookmarksPlugin
+): ToggleComponent {
+	const isIgnored = plugin.settings.ignoredBookmarks.includes(bookmark.id)
+	return toggle
+		.setDisabled(bookmark.id === '')
+		.setValue(isIgnored)
+		.setTooltip(
+			bookmark.id === ''
+				? "Can't hide this bookmark (missing path/query)"
+				: isIgnored
+					? 'Click to show in search'
+					: 'Click to hide from search'
+		)
+		.onChange(async (value) => {
+			if (value) {
+				if (!plugin.settings.ignoredBookmarks.includes(bookmark.id)) {
+					plugin.settings.ignoredBookmarks.push(bookmark.id)
+				}
+			} else {
+				plugin.settings.ignoredBookmarks = plugin.settings.ignoredBookmarks.filter(
+					(id) => id !== bookmark.id
+				)
+			}
+			await plugin.saveSettings()
+		})
+}
+
 class QuickBookmarksSettingTab extends PluginSettingTab {
 	plugin: QuickBookmarksPlugin
 
@@ -300,15 +345,7 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 				new Setting(containerEl)
 					.setName(group.title)
 					.setDesc(`Enable command to open "${group.title}" group`)
-					.addToggle((toggle) =>
-						toggle
-							.setValue(this.plugin.settings.enabledGroupCommands[group.title] ?? false)
-							.onChange(async (value) => {
-								this.plugin.settings.enabledGroupCommands[group.title] = value
-								await this.plugin.saveSettings()
-								this.plugin.registerGroupCommands()
-							})
-					)
+					.addToggle((toggle) => configureGroupToggle(toggle, group, this.plugin))
 			})
 		}
 
@@ -327,30 +364,10 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 			})
 		} else {
 			allBookmarks.forEach((bookmark) => {
-				const typeIcon = bookmark.type === 'file' ? '📄' : bookmark.type === 'folder' ? '📁' : '🔍'
-				new Setting(containerEl).setName(`${typeIcon} ${bookmark.title}`).addToggle((toggle) =>
-					toggle
-						.setDisabled(bookmark.id === '')
-						.setValue(this.plugin.settings.ignoredBookmarks.includes(bookmark.id))
-						.setTooltip(
-							bookmark.id === ''
-								? "Can't hide this bookmark (missing path/query)"
-								: this.plugin.settings.ignoredBookmarks.includes(bookmark.id)
-									? 'Click to show in search'
-									: 'Click to hide from search'
-						)
-						.onChange(async (value) => {
-							if (value) {
-								if (!this.plugin.settings.ignoredBookmarks.includes(bookmark.id)) {
-									this.plugin.settings.ignoredBookmarks.push(bookmark.id)
-								}
-							} else {
-								this.plugin.settings.ignoredBookmarks =
-									this.plugin.settings.ignoredBookmarks.filter((id) => id !== bookmark.id)
-							}
-							await this.plugin.saveSettings()
-						})
-				)
+				const typeIcon = bookmarkTypeIcon(bookmark.type)
+				new Setting(containerEl)
+					.setName(`${typeIcon} ${bookmark.title}`)
+					.addToggle((toggle) => configureIgnoreToggle(toggle, bookmark, this.plugin))
 			})
 		}
 	}
@@ -384,15 +401,7 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 								name: group.title,
 								desc: `Enable command to open "${group.title}" group`,
 								render: (setting: Setting) => {
-									setting.addToggle((toggle) =>
-										toggle
-											.setValue(this.plugin.settings.enabledGroupCommands[group.title] ?? false)
-											.onChange(async (value) => {
-												this.plugin.settings.enabledGroupCommands[group.title] = value
-												await this.plugin.saveSettings()
-												this.plugin.registerGroupCommands()
-											})
-									)
+									setting.addToggle((toggle) => configureGroupToggle(toggle, group, this.plugin))
 								},
 							})),
 			},
@@ -408,33 +417,9 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 								},
 							]
 						: allBookmarks.map((bookmark) => ({
-								name: `${bookmark.type === 'file' ? '📄' : bookmark.type === 'folder' ? '📁' : '🔍'} ${bookmark.title}`,
+								name: `${bookmarkTypeIcon(bookmark.type)} ${bookmark.title}`,
 								render: (setting: Setting) => {
-									setting.addToggle((toggle) =>
-										toggle
-											.setDisabled(bookmark.id === '')
-											.setValue(this.plugin.settings.ignoredBookmarks.includes(bookmark.id))
-											.setTooltip(
-												bookmark.id === ''
-													? "Can't hide this bookmark (missing path/query)"
-													: this.plugin.settings.ignoredBookmarks.includes(bookmark.id)
-														? 'Click to show in search'
-														: 'Click to hide from search'
-											)
-											.onChange(async (value) => {
-												if (value) {
-													if (!this.plugin.settings.ignoredBookmarks.includes(bookmark.id)) {
-														this.plugin.settings.ignoredBookmarks.push(bookmark.id)
-													}
-												} else {
-													this.plugin.settings.ignoredBookmarks =
-														this.plugin.settings.ignoredBookmarks.filter(
-															(id) => id !== bookmark.id
-														)
-												}
-												await this.plugin.saveSettings()
-											})
-									)
+									setting.addToggle((toggle) => configureIgnoreToggle(toggle, bookmark, this.plugin))
 								},
 							})),
 			},

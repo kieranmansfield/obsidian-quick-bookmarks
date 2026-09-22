@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+	bookmarkTypeIcon,
 	buildBookmarkItems,
 	getBookmarkId,
 	getBookmarkItems,
@@ -8,6 +9,24 @@ import {
 	isIdIgnored,
 	sanitizeId,
 } from './utils'
+
+describe('bookmarkTypeIcon', () => {
+	it('returns a document icon for file', () => {
+		expect(bookmarkTypeIcon('file')).toBe('📄')
+	})
+
+	it('returns a folder icon for folder', () => {
+		expect(bookmarkTypeIcon('folder')).toBe('📁')
+	})
+
+	it('returns a search icon for search', () => {
+		expect(bookmarkTypeIcon('search')).toBe('🔍')
+	})
+
+	it('falls back to the search icon for group', () => {
+		expect(bookmarkTypeIcon('group')).toBe('🔍')
+	})
+})
 
 describe('isIdIgnored', () => {
 	it('returns true when the id is in the ignored list', () => {

@@ -16,6 +16,12 @@ export interface BookmarkItem {
 	items?: InternalBookmarkItem[]
 }
 
+export function bookmarkTypeIcon(type: BookmarkItemType): string {
+	if (type === 'file') return '📄'
+	if (type === 'folder') return '📁'
+	return '🔍'
+}
+
 interface BookmarksPluginHost {
 	internalPlugins?: {
 		plugins?: {
