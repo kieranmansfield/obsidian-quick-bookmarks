@@ -54,6 +54,12 @@ export function getBookmarkId(item: InternalBookmarkItem): string {
 	return ''
 }
 
+export function isIdIgnored(id: string, ignoredBookmarks: string[]): boolean {
+	// An empty id means the bookmark has no path/query to identify it; treating it as
+	// ignorable would silently hide every other malformed bookmark that also resolves to ''.
+	return id !== '' && ignoredBookmarks.includes(id)
+}
+
 export function getDisplayName(item: InternalBookmarkItem): string {
 	// Use custom title if available
 	if (item.title) {

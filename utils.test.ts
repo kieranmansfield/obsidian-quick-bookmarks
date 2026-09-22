@@ -5,8 +5,23 @@ import {
 	getBookmarkItems,
 	getDisplayName,
 	type InternalBookmarkItem,
+	isIdIgnored,
 	sanitizeId,
 } from './utils'
+
+describe('isIdIgnored', () => {
+	it('returns true when the id is in the ignored list', () => {
+		expect(isIdIgnored('file:a.md', ['file:a.md'])).toBe(true)
+	})
+
+	it('returns false when the id is not in the ignored list', () => {
+		expect(isIdIgnored('file:a.md', ['file:b.md'])).toBe(false)
+	})
+
+	it('returns false for an empty id even if "" is in the list', () => {
+		expect(isIdIgnored('', [''])).toBe(false)
+	})
+})
 
 describe('getBookmarkItems', () => {
 	it('returns items when the bookmarks plugin is enabled', () => {

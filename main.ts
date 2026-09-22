@@ -14,6 +14,7 @@ import {
 	getBookmarkId,
 	getBookmarkItems,
 	type InternalBookmarkItem,
+	isIdIgnored,
 	sanitizeId,
 } from './utils'
 
@@ -144,8 +145,7 @@ export default class QuickBookmarksPlugin extends Plugin {
 	}
 
 	isBookmarkIgnored(item: InternalBookmarkItem): boolean {
-		const id = getBookmarkId(item)
-		return this.settings.ignoredBookmarks.includes(id)
+		return isIdIgnored(getBookmarkId(item), this.settings.ignoredBookmarks)
 	}
 
 	async loadSettings() {
@@ -330,11 +330,14 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 				const typeIcon = bookmark.type === 'file' ? '📄' : bookmark.type === 'folder' ? '📁' : '🔍'
 				new Setting(containerEl).setName(`${typeIcon} ${bookmark.title}`).addToggle((toggle) =>
 					toggle
+						.setDisabled(bookmark.id === '')
 						.setValue(this.plugin.settings.ignoredBookmarks.includes(bookmark.id))
 						.setTooltip(
-							this.plugin.settings.ignoredBookmarks.includes(bookmark.id)
-								? 'Click to show in search'
-								: 'Click to hide from search'
+							bookmark.id === ''
+								? "Can't hide this bookmark (missing path/query)"
+								: this.plugin.settings.ignoredBookmarks.includes(bookmark.id)
+									? 'Click to show in search'
+									: 'Click to hide from search'
 						)
 						.onChange(async (value) => {
 							if (value) {
@@ -408,11 +411,14 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 								render: (setting: Setting) => {
 									setting.addToggle((toggle) =>
 										toggle
+											.setDisabled(bookmark.id === '')
 											.setValue(this.plugin.settings.ignoredBookmarks.includes(bookmark.id))
 											.setTooltip(
-												this.plugin.settings.ignoredBookmarks.includes(bookmark.id)
-													? 'Click to show in search'
-													: 'Click to hide from search'
+												bookmark.id === ''
+													? "Can't hide this bookmark (missing path/query)"
+													: this.plugin.settings.ignoredBookmarks.includes(bookmark.id)
+														? 'Click to show in search'
+														: 'Click to hide from search'
 											)
 											.onChange(async (value) => {
 												if (value) {
