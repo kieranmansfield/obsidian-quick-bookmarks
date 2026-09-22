@@ -8,18 +8,14 @@ import {
 	TFile,
 	TFolder,
 } from 'obsidian'
-import { getBookmarkId, getDisplayName, sanitizeId } from './utils'
-
-// Type definitions for Obsidian's internal bookmark plugin API
-type BookmarkItemType = 'file' | 'folder' | 'search' | 'group'
-
-interface InternalBookmarkItem {
-	type: BookmarkItemType
-	title?: string
-	path?: string
-	query?: string
-	items?: InternalBookmarkItem[]
-}
+import {
+	type BookmarkItem,
+	buildBookmarkItems,
+	getBookmarkId,
+	getBookmarkItems,
+	type InternalBookmarkItem,
+	sanitizeId,
+} from './utils'
 
 interface InternalBookmarksPluginInstance {
 	items: InternalBookmarkItem[]
@@ -57,14 +53,6 @@ interface ObsidianAppWithInternals extends App {
 	}
 }
 
-interface BookmarkItem {
-	type: BookmarkItemType
-	title: string
-	path?: string
-	query?: string
-	items?: InternalBookmarkItem[]
-}
-
 interface QuickBookmarksSettings {
 	groupHandling: 'flatten' | 'separate'
 	enabledGroupCommands: Record<string, boolean>
@@ -100,18 +88,8 @@ export default class QuickBookmarksPlugin extends Plugin {
 
 	getBookmarkGroups(): Array<{ title: string; items: InternalBookmarkItem[] }> {
 		const groups: Array<{ title: string; items: InternalBookmarkItem[] }> = []
-		const bookmarkPlugin = this.app.internalPlugins?.plugins?.bookmarks
 
-		if (!bookmarkPlugin || !bookmarkPlugin.enabled) {
-			return groups
-		}
-
-		const bookmarkItems = bookmarkPlugin.instance?.items
-		if (!bookmarkItems) {
-			return groups
-		}
-
-		bookmarkItems.forEach((item) => {
+		getBookmarkItems(this.app).forEach((item) => {
 			if (item.type === 'group') {
 				groups.push({
 					title: item.title || '',
@@ -155,43 +133,14 @@ export default class QuickBookmarksPlugin extends Plugin {
 		type: string
 		path?: string
 	}> {
-		const allBookmarks: Array<{
-			id: string
-			title: string
-			type: string
-			path?: string
-		}> = []
-		const bookmarkPlugin = this.app.internalPlugins?.plugins?.bookmarks
-
-		if (!bookmarkPlugin || !bookmarkPlugin.enabled) {
-			return allBookmarks
-		}
-
-		const bookmarkItems = bookmarkPlugin.instance?.items
-		if (!bookmarkItems) {
-			return allBookmarks
-		}
-
-		const processItem = (item: InternalBookmarkItem, parentPath = '') => {
-			if (item.type === 'group') {
-				const groupTitle = parentPath ? `${parentPath} > ${item.title || ''}` : item.title || ''
-				if (item.items) {
-					item.items.forEach((child) => processItem(child, groupTitle))
-				}
-			} else {
-				const displayName = getDisplayName(item)
-				const title = parentPath ? `${parentPath} > ${displayName}` : displayName
-				allBookmarks.push({
-					id: getBookmarkId(item),
-					title,
-					type: item.type,
-					path: item.path,
-				})
-			}
-		}
-
-		bookmarkItems.forEach((item) => processItem(item))
-		return allBookmarks
+		// Settings tab needs every bookmark, including ignored ones, so they can be toggled back on.
+		const items = buildBookmarkItems(getBookmarkItems(this.app), { flatten: true, isIgnored: () => false })
+		return items.map((item) => ({
+			id: getBookmarkId(item),
+			title: item.title,
+			type: item.type,
+			path: item.path,
+		}))
 	}
 
 	isBookmarkIgnored(item: InternalBookmarkItem): boolean {
@@ -213,6 +162,31 @@ export default class QuickBookmarksPlugin extends Plugin {
 	}
 }
 
+// Obsidian's `obsidian` package ships types only (no runtime TFile/TFolder classes),
+// so instanceof checks here can't run without a live Obsidian App.
+// fallow-ignore-next-line complexity
+function openBookmarkItem(
+	app: ObsidianAppWithInternals,
+	plugin: QuickBookmarksPlugin,
+	item: BookmarkItem
+): void {
+	if (item.type === 'group') {
+		new BookmarkGroupModal(app, plugin, item.title, item.items || []).open()
+	} else if (item.type === 'file' && item.path) {
+		const file = app.vault.getAbstractFileByPath(item.path)
+		if (file instanceof TFile) {
+			void app.workspace.getLeaf().openFile(file)
+		}
+	} else if (item.type === 'folder' && item.path) {
+		const folder = app.vault.getAbstractFileByPath(item.path)
+		if (folder instanceof TFolder) {
+			app.internalPlugins?.plugins['file-explorer']?.instance.revealInFolder(folder)
+		}
+	} else if (item.type === 'search' && item.query) {
+		app.internalPlugins?.plugins['global-search']?.instance.openGlobalSearch(item.query)
+	}
+}
+
 class BookmarksSearchModal extends FuzzySuggestModal<BookmarkItem> {
 	plugin: QuickBookmarksPlugin
 	parentPath: string
@@ -227,68 +201,10 @@ class BookmarksSearchModal extends FuzzySuggestModal<BookmarkItem> {
 	}
 
 	getItems(): BookmarkItem[] {
-		const bookmarks: BookmarkItem[] = []
-		const bookmarkPlugin = this.app.internalPlugins?.plugins?.bookmarks
-
-		if (!bookmarkPlugin || !bookmarkPlugin.enabled) {
-			return bookmarks
-		}
-
-		const bookmarkItems = bookmarkPlugin.instance?.items
-		if (!bookmarkItems) {
-			return bookmarks
-		}
-
-		const useSeparateModals = this.plugin.settings.groupHandling === 'separate'
-
-		const processBookmarkItem = (item: InternalBookmarkItem, parentPath = '') => {
-			if (item.type === 'group') {
-				if (useSeparateModals) {
-					// In separate mode, add groups as navigable items
-					bookmarks.push({
-						type: 'group',
-						title: item.title || '',
-						items: item.items,
-					})
-				} else {
-					// In flatten mode, process children with group path
-					const groupTitle = parentPath ? `${parentPath} > ${item.title || ''}` : item.title || ''
-					if (item.items) {
-						item.items.forEach((child) => processBookmarkItem(child, groupTitle))
-					}
-				}
-			} else if (item.type === 'file') {
-				if (!this.plugin.isBookmarkIgnored(item)) {
-					const displayName = getDisplayName(item)
-					bookmarks.push({
-						type: 'file',
-						title: parentPath ? `${parentPath} > ${displayName}` : displayName,
-						path: item.path,
-					})
-				}
-			} else if (item.type === 'folder') {
-				if (!this.plugin.isBookmarkIgnored(item)) {
-					const displayName = getDisplayName(item)
-					bookmarks.push({
-						type: 'folder',
-						title: parentPath ? `${parentPath} > ${displayName}` : displayName,
-						path: item.path,
-					})
-				}
-			} else if (item.type === 'search') {
-				if (!this.plugin.isBookmarkIgnored(item)) {
-					const displayName = getDisplayName(item)
-					bookmarks.push({
-						type: 'search',
-						title: parentPath ? `${parentPath} > ${displayName}` : displayName,
-						query: item.query,
-					})
-				}
-			}
-		}
-
-		bookmarkItems.forEach((item) => processBookmarkItem(item))
-		return bookmarks
+		return buildBookmarkItems(getBookmarkItems(this.app), {
+			flatten: this.plugin.settings.groupHandling === 'flatten',
+			isIgnored: (item) => this.plugin.isBookmarkIgnored(item),
+		})
 	}
 
 	getItemText(item: BookmarkItem): string {
@@ -296,22 +212,7 @@ class BookmarksSearchModal extends FuzzySuggestModal<BookmarkItem> {
 	}
 
 	onChooseItem(item: BookmarkItem): void {
-		if (item.type === 'group') {
-			// Open a new modal for this group
-			new BookmarkGroupModal(this.app, this.plugin, item.title, item.items || []).open()
-		} else if (item.type === 'file' && item.path) {
-			const file = this.app.vault.getAbstractFileByPath(item.path)
-			if (file instanceof TFile) {
-				void this.app.workspace.getLeaf().openFile(file)
-			}
-		} else if (item.type === 'folder' && item.path) {
-			const folder = this.app.vault.getAbstractFileByPath(item.path)
-			if (folder instanceof TFolder) {
-				this.app.internalPlugins?.plugins['file-explorer']?.instance.revealInFolder(folder)
-			}
-		} else if (item.type === 'search' && item.query) {
-			this.app.internalPlugins?.plugins['global-search']?.instance.openGlobalSearch(item.query)
-		}
+		openBookmarkItem(this.app, this.plugin, item)
 	}
 }
 
@@ -337,48 +238,11 @@ class BookmarkGroupModal extends FuzzySuggestModal<BookmarkItem> {
 	}
 
 	getItems(): BookmarkItem[] {
-		const bookmarks: BookmarkItem[] = []
-
-		const processBookmarkItem = (item: InternalBookmarkItem, parentPath = '') => {
-			if (item.type === 'group') {
-				// Nested groups - add as navigable items
-				bookmarks.push({
-					type: 'group',
-					title: parentPath ? `${parentPath} > ${item.title || ''}` : item.title || '',
-					items: item.items,
-				})
-			} else if (item.type === 'file') {
-				if (!this.plugin.isBookmarkIgnored(item)) {
-					const displayName = getDisplayName(item)
-					bookmarks.push({
-						type: 'file',
-						title: parentPath ? `${parentPath} > ${displayName}` : displayName,
-						path: item.path,
-					})
-				}
-			} else if (item.type === 'folder') {
-				if (!this.plugin.isBookmarkIgnored(item)) {
-					const displayName = getDisplayName(item)
-					bookmarks.push({
-						type: 'folder',
-						title: parentPath ? `${parentPath} > ${displayName}` : displayName,
-						path: item.path,
-					})
-				}
-			} else if (item.type === 'search') {
-				if (!this.plugin.isBookmarkIgnored(item)) {
-					const displayName = getDisplayName(item)
-					bookmarks.push({
-						type: 'search',
-						title: parentPath ? `${parentPath} > ${displayName}` : displayName,
-						query: item.query,
-					})
-				}
-			}
-		}
-
-		this.groupItems.forEach((item) => processBookmarkItem(item))
-		return bookmarks
+		// Nested groups always stay navigable, regardless of the top-level group setting.
+		return buildBookmarkItems(this.groupItems, {
+			flatten: false,
+			isIgnored: (item) => this.plugin.isBookmarkIgnored(item),
+		})
 	}
 
 	getItemText(item: BookmarkItem): string {
@@ -386,22 +250,7 @@ class BookmarkGroupModal extends FuzzySuggestModal<BookmarkItem> {
 	}
 
 	onChooseItem(item: BookmarkItem): void {
-		if (item.type === 'group') {
-			// Open another modal for nested group
-			new BookmarkGroupModal(this.app, this.plugin, item.title, item.items || []).open()
-		} else if (item.type === 'file' && item.path) {
-			const file = this.app.vault.getAbstractFileByPath(item.path)
-			if (file instanceof TFile) {
-				void this.app.workspace.getLeaf().openFile(file)
-			}
-		} else if (item.type === 'folder' && item.path) {
-			const folder = this.app.vault.getAbstractFileByPath(item.path)
-			if (folder instanceof TFolder) {
-				this.app.internalPlugins?.plugins['file-explorer']?.instance.revealInFolder(folder)
-			}
-		} else if (item.type === 'search' && item.query) {
-			this.app.internalPlugins?.plugins['global-search']?.instance.openGlobalSearch(item.query)
-		}
+		openBookmarkItem(this.app, this.plugin, item)
 	}
 }
 

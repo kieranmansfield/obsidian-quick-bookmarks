@@ -1,5 +1,38 @@
 import { describe, expect, it } from 'vitest'
-import { getBookmarkId, getDisplayName, sanitizeId } from './utils'
+import {
+	buildBookmarkItems,
+	getBookmarkId,
+	getBookmarkItems,
+	getDisplayName,
+	type InternalBookmarkItem,
+	sanitizeId,
+} from './utils'
+
+describe('getBookmarkItems', () => {
+	it('returns items when the bookmarks plugin is enabled', () => {
+		const items: InternalBookmarkItem[] = [{ type: 'file', path: 'a.md' }]
+		const app = { internalPlugins: { plugins: { bookmarks: { enabled: true, instance: { items } } } } }
+		expect(getBookmarkItems(app)).toBe(items)
+	})
+
+	it('returns an empty array when the bookmarks plugin is disabled', () => {
+		const app = {
+			internalPlugins: {
+				plugins: { bookmarks: { enabled: false, instance: { items: [] } } },
+			},
+		}
+		expect(getBookmarkItems(app)).toEqual([])
+	})
+
+	it('returns an empty array when the bookmarks plugin is missing', () => {
+		expect(getBookmarkItems({})).toEqual([])
+	})
+
+	it('returns an empty array when instance/items is missing', () => {
+		const app = { internalPlugins: { plugins: { bookmarks: { enabled: true } } } }
+		expect(getBookmarkItems(app)).toEqual([])
+	})
+})
 
 describe('sanitizeId', () => {
 	it('lowercases and hyphenates', () => {
@@ -52,5 +85,40 @@ describe('getDisplayName', () => {
 
 	it('falls back to empty string when nothing available', () => {
 		expect(getDisplayName({ type: 'group' })).toBe('')
+	})
+})
+
+describe('buildBookmarkItems', () => {
+	const notIgnored = () => false
+
+	it('flattens groups into path-prefixed items when flatten is true', () => {
+		const items: InternalBookmarkItem[] = [
+			{
+				type: 'group',
+				title: 'Work',
+				items: [{ type: 'file', path: 'notes/a.md' }],
+			},
+		]
+		const result = buildBookmarkItems(items, { flatten: true, isIgnored: notIgnored })
+		expect(result).toEqual([{ type: 'file', title: 'Work > a', path: 'notes/a.md', query: undefined }])
+	})
+
+	it('keeps groups as navigable items when flatten is false', () => {
+		const groupItems: InternalBookmarkItem[] = [{ type: 'file', path: 'notes/a.md' }]
+		const items: InternalBookmarkItem[] = [{ type: 'group', title: 'Work', items: groupItems }]
+		const result = buildBookmarkItems(items, { flatten: false, isIgnored: notIgnored })
+		expect(result).toEqual([{ type: 'group', title: 'Work', items: groupItems }])
+	})
+
+	it('skips items the isIgnored callback flags', () => {
+		const items: InternalBookmarkItem[] = [
+			{ type: 'file', path: 'notes/a.md' },
+			{ type: 'file', path: 'notes/b.md' },
+		]
+		const result = buildBookmarkItems(items, {
+			flatten: true,
+			isIgnored: (item) => item.path === 'notes/b.md',
+		})
+		expect(result).toEqual([{ type: 'file', title: 'a', path: 'notes/a.md', query: undefined }])
 	})
 })

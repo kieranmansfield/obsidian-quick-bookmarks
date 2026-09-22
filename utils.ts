@@ -1,11 +1,38 @@
-type BookmarkItemType = 'file' | 'folder' | 'search' | 'group'
+export type BookmarkItemType = 'file' | 'folder' | 'search' | 'group'
 
-interface InternalBookmarkItem {
+export interface InternalBookmarkItem {
 	type: BookmarkItemType
 	title?: string
 	path?: string
 	query?: string
 	items?: InternalBookmarkItem[]
+}
+
+export interface BookmarkItem {
+	type: BookmarkItemType
+	title: string
+	path?: string
+	query?: string
+	items?: InternalBookmarkItem[]
+}
+
+interface BookmarksPluginHost {
+	internalPlugins?: {
+		plugins?: {
+			bookmarks?: {
+				enabled: boolean
+				instance?: { items: InternalBookmarkItem[] }
+			}
+		}
+	}
+}
+
+export function getBookmarkItems(app: BookmarksPluginHost): InternalBookmarkItem[] {
+	const bookmarkPlugin = app.internalPlugins?.plugins?.bookmarks
+	if (!bookmarkPlugin || !bookmarkPlugin.enabled) {
+		return []
+	}
+	return bookmarkPlugin.instance?.items || []
 }
 
 export function sanitizeId(title: string): string {
@@ -52,4 +79,53 @@ export function getDisplayName(item: InternalBookmarkItem): string {
 	}
 
 	return item.path || item.query || ''
+}
+
+interface BuildBookmarkItemsOptions {
+	// When true, groups are expanded inline with a "Group > Item" path prefix
+	// instead of appearing as their own navigable item.
+	flatten: boolean
+	isIgnored: (item: InternalBookmarkItem) => boolean
+}
+
+function withPathPrefix(parentPath: string, name: string): string {
+	return parentPath ? `${parentPath} > ${name}` : name
+}
+
+export function buildBookmarkItems(
+	items: InternalBookmarkItem[],
+	{ flatten, isIgnored }: BuildBookmarkItemsOptions
+): BookmarkItem[] {
+	const bookmarks: BookmarkItem[] = []
+
+	const processGroup = (item: InternalBookmarkItem, groupTitle: string) => {
+		if (flatten) {
+			item.items?.forEach((child) => processItem(child, groupTitle))
+		} else {
+			bookmarks.push({ type: 'group', title: groupTitle, items: item.items })
+		}
+	}
+
+	const processItem = (item: InternalBookmarkItem, parentPath = '') => {
+		const title = withPathPrefix(parentPath, item.title || '')
+
+		if (item.type === 'group') {
+			processGroup(item, title)
+			return
+		}
+
+		if (isIgnored(item)) {
+			return
+		}
+
+		bookmarks.push({
+			type: item.type,
+			title: withPathPrefix(parentPath, getDisplayName(item)),
+			path: item.path,
+			query: item.query,
+		})
+	}
+
+	items.forEach((item) => processItem(item))
+	return bookmarks
 }
