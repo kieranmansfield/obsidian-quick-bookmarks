@@ -8,6 +8,7 @@ import {
 	TFile,
 	TFolder,
 } from 'obsidian'
+import { getBookmarkId, getDisplayName, sanitizeId } from './utils'
 
 // Type definitions for Obsidian's internal bookmark plugin API
 type BookmarkItemType = 'file' | 'folder' | 'search' | 'group'
@@ -132,7 +133,7 @@ export default class QuickBookmarksPlugin extends Plugin {
 		const groups = this.getBookmarkGroups()
 
 		groups.forEach((group) => {
-			const commandId = `open-group-${this.sanitizeId(group.title)}`
+			const commandId = `open-group-${sanitizeId(group.title)}`
 			const isEnabled = this.settings.enabledGroupCommands[group.title] ?? false
 
 			if (isEnabled) {
@@ -146,13 +147,6 @@ export default class QuickBookmarksPlugin extends Plugin {
 				this.groupCommands.add(commandId)
 			}
 		})
-	}
-
-	sanitizeId(title: string): string {
-		return title
-			.toLowerCase()
-			.replace(/[^a-z0-9]+/g, '-')
-			.replace(/^-|-$/g, '')
 	}
 
 	getAllBookmarks(): Array<{
@@ -185,10 +179,10 @@ export default class QuickBookmarksPlugin extends Plugin {
 					item.items.forEach((child) => processItem(child, groupTitle))
 				}
 			} else {
-				const displayName = this.getDisplayName(item)
+				const displayName = getDisplayName(item)
 				const title = parentPath ? `${parentPath} > ${displayName}` : displayName
 				allBookmarks.push({
-					id: this.getBookmarkId(item),
+					id: getBookmarkId(item),
 					title,
 					type: item.type,
 					path: item.path,
@@ -200,48 +194,9 @@ export default class QuickBookmarksPlugin extends Plugin {
 		return allBookmarks
 	}
 
-	getBookmarkId(item: InternalBookmarkItem): string {
-		// Create a unique ID for each bookmark based on type and path/query
-		if (item.type === 'file' && item.path) {
-			return `file:${item.path}`
-		} else if (item.type === 'folder' && item.path) {
-			return `folder:${item.path}`
-		} else if (item.type === 'search' && item.query) {
-			return `search:${item.query}`
-		}
-		return ''
-	}
-
 	isBookmarkIgnored(item: InternalBookmarkItem): boolean {
-		const id = this.getBookmarkId(item)
+		const id = getBookmarkId(item)
 		return this.settings.ignoredBookmarks.includes(id)
-	}
-
-	getDisplayName(item: InternalBookmarkItem): string {
-		// Use custom title if available
-		if (item.title) {
-			return item.title
-		}
-
-		// For files and folders, extract filename without extension from path
-		if (item.type === 'file' || item.type === 'folder') {
-			if (item.path) {
-				const pathParts = item.path.split('/')
-				const filename = pathParts[pathParts.length - 1]
-				// Remove file extension for files
-				if (item.type === 'file') {
-					return filename.replace(/\.[^/.]+$/, '')
-				}
-				return filename
-			}
-		}
-
-		// For search, use query as fallback
-		if (item.type === 'search' && item.query) {
-			return item.query
-		}
-
-		return item.path || item.query || ''
 	}
 
 	async loadSettings() {
@@ -304,7 +259,7 @@ class BookmarksSearchModal extends FuzzySuggestModal<BookmarkItem> {
 				}
 			} else if (item.type === 'file') {
 				if (!this.plugin.isBookmarkIgnored(item)) {
-					const displayName = this.plugin.getDisplayName(item)
+					const displayName = getDisplayName(item)
 					bookmarks.push({
 						type: 'file',
 						title: parentPath ? `${parentPath} > ${displayName}` : displayName,
@@ -313,7 +268,7 @@ class BookmarksSearchModal extends FuzzySuggestModal<BookmarkItem> {
 				}
 			} else if (item.type === 'folder') {
 				if (!this.plugin.isBookmarkIgnored(item)) {
-					const displayName = this.plugin.getDisplayName(item)
+					const displayName = getDisplayName(item)
 					bookmarks.push({
 						type: 'folder',
 						title: parentPath ? `${parentPath} > ${displayName}` : displayName,
@@ -322,7 +277,7 @@ class BookmarksSearchModal extends FuzzySuggestModal<BookmarkItem> {
 				}
 			} else if (item.type === 'search') {
 				if (!this.plugin.isBookmarkIgnored(item)) {
-					const displayName = this.plugin.getDisplayName(item)
+					const displayName = getDisplayName(item)
 					bookmarks.push({
 						type: 'search',
 						title: parentPath ? `${parentPath} > ${displayName}` : displayName,
@@ -394,7 +349,7 @@ class BookmarkGroupModal extends FuzzySuggestModal<BookmarkItem> {
 				})
 			} else if (item.type === 'file') {
 				if (!this.plugin.isBookmarkIgnored(item)) {
-					const displayName = this.plugin.getDisplayName(item)
+					const displayName = getDisplayName(item)
 					bookmarks.push({
 						type: 'file',
 						title: parentPath ? `${parentPath} > ${displayName}` : displayName,
@@ -403,7 +358,7 @@ class BookmarkGroupModal extends FuzzySuggestModal<BookmarkItem> {
 				}
 			} else if (item.type === 'folder') {
 				if (!this.plugin.isBookmarkIgnored(item)) {
-					const displayName = this.plugin.getDisplayName(item)
+					const displayName = getDisplayName(item)
 					bookmarks.push({
 						type: 'folder',
 						title: parentPath ? `${parentPath} > ${displayName}` : displayName,
@@ -412,7 +367,7 @@ class BookmarkGroupModal extends FuzzySuggestModal<BookmarkItem> {
 				}
 			} else if (item.type === 'search') {
 				if (!this.plugin.isBookmarkIgnored(item)) {
-					const displayName = this.plugin.getDisplayName(item)
+					const displayName = getDisplayName(item)
 					bookmarks.push({
 						type: 'search',
 						title: parentPath ? `${parentPath} > ${displayName}` : displayName,
