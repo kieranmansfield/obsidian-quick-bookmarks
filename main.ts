@@ -1,8 +1,10 @@
 import {
 	App,
+	type FuzzyMatch,
 	FuzzySuggestModal,
 	Plugin,
 	PluginSettingTab,
+	setIcon,
 	Setting,
 	type SettingDefinitionItem,
 	TFile,
@@ -13,6 +15,7 @@ import {
 	type BookmarkItem,
 	bookmarkTypeIcon,
 	type BookmarkItemType,
+	bookmarkTypeLucideIcon,
 	buildBookmarkItems,
 	getBookmarkId,
 	getBookmarkItems,
@@ -20,6 +23,13 @@ import {
 	isIdIgnored,
 	sanitizeId,
 } from './utils'
+
+function renderBookmarkSuggestion(item: BookmarkItem, el: HTMLElement): void {
+	el.empty()
+	const iconEl = el.createSpan({ cls: 'quick-bookmarks-suggestion-icon' })
+	setIcon(iconEl, bookmarkTypeLucideIcon(item.type))
+	el.createSpan({ text: item.title })
+}
 
 interface InternalBookmarksPluginInstance {
 	items: InternalBookmarkItem[]
@@ -86,6 +96,14 @@ export default class QuickBookmarksPlugin extends Plugin {
 			},
 		})
 
+		this.addCommand({
+			id: 'open-bookmarks-search-flattened',
+			name: 'Search all bookmarks (flattened)',
+			callback: () => {
+				new BookmarksSearchModal(this.app, this, '', true).open()
+			},
+		})
+
 		this.registerGroupCommands()
 		this.addSettingTab(new QuickBookmarksSettingTab(this.app, this))
 	}
@@ -123,7 +141,7 @@ export default class QuickBookmarksPlugin extends Plugin {
 					id: commandId,
 					name: `Open group: ${group.title}`,
 					callback: () => {
-						new BookmarkGroupModal(this.app, this, group.title, group.items).open()
+						new BookmarkGroupModal(this.app, this, group.title).open()
 					},
 				})
 				this.groupCommands.add(commandId)
@@ -173,7 +191,7 @@ function openBookmarkItem(
 	item: BookmarkItem
 ): void {
 	if (item.type === 'group') {
-		new BookmarkGroupModal(app, plugin, item.title, item.items || []).open()
+		new BookmarkGroupModal(app, plugin, item.title).open()
 	} else if (item.type === 'file' && item.path) {
 		const file = app.vault.getAbstractFileByPath(item.path)
 		if (file instanceof TFile) {
@@ -192,25 +210,31 @@ function openBookmarkItem(
 class BookmarksSearchModal extends FuzzySuggestModal<BookmarkItem> {
 	plugin: QuickBookmarksPlugin
 	parentPath: string
+	forceFlatten: boolean
 
 	override app: ObsidianAppWithInternals
 
-	constructor(app: App, plugin: QuickBookmarksPlugin, parentPath = '') {
+	constructor(app: App, plugin: QuickBookmarksPlugin, parentPath = '', forceFlatten = false) {
 		super(app)
 		this.plugin = plugin
 		this.parentPath = parentPath
+		this.forceFlatten = forceFlatten
 		this.app = app
 	}
 
 	getItems(): BookmarkItem[] {
 		return buildBookmarkItems(getBookmarkItems(this.app), {
-			flatten: this.plugin.settings.groupHandling === 'flatten',
+			flatten: this.forceFlatten || this.plugin.settings.groupHandling === 'flatten',
 			isIgnored: (item) => this.plugin.isBookmarkIgnored(item),
 		})
 	}
 
 	getItemText(item: BookmarkItem): string {
 		return item.title
+	}
+
+	renderSuggestion(item: FuzzyMatch<BookmarkItem>, el: HTMLElement): void {
+		renderBookmarkSuggestion(item.item, el)
 	}
 
 	onChooseItem(item: BookmarkItem): void {
@@ -221,27 +245,22 @@ class BookmarksSearchModal extends FuzzySuggestModal<BookmarkItem> {
 class BookmarkGroupModal extends FuzzySuggestModal<BookmarkItem> {
 	plugin: QuickBookmarksPlugin
 	groupTitle: string
-	groupItems: InternalBookmarkItem[]
 
 	override app: ObsidianAppWithInternals
 
-	constructor(
-		app: App,
-		plugin: QuickBookmarksPlugin,
-		groupTitle: string,
-		groupItems: InternalBookmarkItem[]
-	) {
+	constructor(app: App, plugin: QuickBookmarksPlugin, groupTitle: string) {
 		super(app)
 		this.plugin = plugin
 		this.groupTitle = groupTitle
-		this.groupItems = groupItems
 		this.setPlaceholder(`Search in ${groupTitle}...`)
 		this.app = app
 	}
 
 	getItems(): BookmarkItem[] {
 		// Nested groups always stay navigable, regardless of the top-level group setting.
-		return buildBookmarkItems(this.groupItems, {
+		// Fetched fresh (not cached) so edits made in Obsidian's Bookmarks pane show up immediately.
+		const groupItems = this.plugin.getBookmarkGroups().find((g) => g.title === this.groupTitle)?.items ?? []
+		return buildBookmarkItems(groupItems, {
 			flatten: false,
 			isIgnored: (item) => this.plugin.isBookmarkIgnored(item),
 		})
@@ -249,6 +268,10 @@ class BookmarkGroupModal extends FuzzySuggestModal<BookmarkItem> {
 
 	getItemText(item: BookmarkItem): string {
 		return item.title
+	}
+
+	renderSuggestion(item: FuzzyMatch<BookmarkItem>, el: HTMLElement): void {
+		renderBookmarkSuggestion(item.item, el)
 	}
 
 	onChooseItem(item: BookmarkItem): void {

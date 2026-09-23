@@ -22,6 +22,13 @@ export function bookmarkTypeIcon(type: BookmarkItemType): string {
 	return '🔍'
 }
 
+export function bookmarkTypeLucideIcon(type: BookmarkItemType): string {
+	if (type === 'file') return 'file'
+	if (type === 'folder') return 'folder'
+	if (type === 'group') return 'folder-open'
+	return 'search'
+}
+
 interface BookmarksPluginHost {
 	internalPlugins?: {
 		plugins?: {
