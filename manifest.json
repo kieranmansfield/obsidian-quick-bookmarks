@@ -1,11 +1,11 @@
 {
 	"id": "quick-bookmarks",
 	"name": "Quick Bookmarks",
-	"version": "1.1.5",
 	"minAppVersion": "1.13.0",
 	"description": "Quickly access bookmarks through a fuzzy search modal.",
 	"author": "Kieran Mansfield",
 	"authorUrl": "https://kieranmansfield.com",
 	"fundingUrl": "https://github.com/kieranmansfield/obsidian-quick-bookmarks",
-	"isDesktopOnly": false
+	"isDesktopOnly": false,
+	"version": "1.1.6"
 }
