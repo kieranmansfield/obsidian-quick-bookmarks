@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-quick-bookmarks-plugin",
-	"version": "1.2.1",
+	"version": "1.3.0",
 	"description": "Quickly access bookmarks through a fuzzy search modal.",
 	"main": "main.js",
 	"packageManager": "pnpm@12.18.0",
