@@ -45,7 +45,9 @@ describe('isIdIgnored', () => {
 describe('getBookmarkItems', () => {
 	it('returns items when the bookmarks plugin is enabled', () => {
 		const items: InternalBookmarkItem[] = [{ type: 'file', path: 'a.md' }]
-		const app = { internalPlugins: { plugins: { bookmarks: { enabled: true, instance: { items } } } } }
+		const app = {
+			internalPlugins: { plugins: { bookmarks: { enabled: true, instance: { items } } } },
+		}
 		expect(getBookmarkItems(app)).toBe(items)
 	})
 
@@ -134,7 +136,9 @@ describe('buildBookmarkItems', () => {
 			},
 		]
 		const result = buildBookmarkItems(items, { flatten: true, isIgnored: notIgnored })
-		expect(result).toEqual([{ type: 'file', title: 'Work > a', path: 'notes/a.md', query: undefined }])
+		expect(result).toEqual([
+			{ type: 'file', title: 'Work > a', path: 'notes/a.md', query: undefined },
+		])
 	})
 
 	it('keeps groups as navigable items when flatten is false', () => {

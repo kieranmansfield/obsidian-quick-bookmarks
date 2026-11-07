@@ -156,7 +156,10 @@ export default class QuickBookmarksPlugin extends Plugin {
 		path?: string
 	}> {
 		// Settings tab needs every bookmark, including ignored ones, so they can be toggled back on.
-		const items = buildBookmarkItems(getBookmarkItems(this.app), { flatten: true, isIgnored: () => false })
+		const items = buildBookmarkItems(getBookmarkItems(this.app), {
+			flatten: true,
+			isIgnored: () => false,
+		})
 		return items.map((item) => ({
 			id: getBookmarkId(item),
 			title: item.title,
@@ -267,7 +270,8 @@ class BookmarkGroupModal extends FuzzySuggestModal<BookmarkItem> {
 	getItems(): BookmarkItem[] {
 		// Nested groups always stay navigable, regardless of the top-level group setting.
 		// Fetched fresh (not cached) so edits made in Obsidian's Bookmarks pane show up immediately.
-		const groupItems = this.plugin.getBookmarkGroups().find((g) => g.title === this.groupTitle)?.items ?? []
+		const groupItems =
+			this.plugin.getBookmarkGroups().find((g) => g.title === this.groupTitle)?.items ?? []
 		return buildBookmarkItems(groupItems, {
 			flatten: false,
 			isIgnored: (item) => this.plugin.isBookmarkIgnored(item),
@@ -288,11 +292,13 @@ function configureGroupToggle(
 	group: { title: string },
 	plugin: QuickBookmarksPlugin
 ): ToggleComponent {
-	return toggle.setValue(plugin.settings.enabledGroupCommands[group.title] ?? false).onChange(async (value) => {
-		plugin.settings.enabledGroupCommands[group.title] = value
-		await plugin.saveSettings()
-		plugin.registerGroupCommands()
-	})
+	return toggle
+		.setValue(plugin.settings.enabledGroupCommands[group.title] ?? false)
+		.onChange(async (value) => {
+			plugin.settings.enabledGroupCommands[group.title] = value
+			await plugin.saveSettings()
+			plugin.registerGroupCommands()
+		})
 }
 
 function configureIgnoreToggle(
@@ -380,7 +386,9 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 						: allBookmarks.map((bookmark) => ({
 								name: `${bookmarkTypeIcon(bookmark.type)} ${bookmark.title}`,
 								render: (setting: Setting) => {
-									setting.addToggle((toggle) => configureIgnoreToggle(toggle, bookmark, this.plugin))
+									setting.addToggle((toggle) =>
+										configureIgnoreToggle(toggle, bookmark, this.plugin)
+									)
 								},
 							})),
 			},
