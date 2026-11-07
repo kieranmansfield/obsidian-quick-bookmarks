@@ -1,3 +1,4 @@
+tagVersionPrefix: ''
 allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:

@@ -1,4 +1,3 @@
-import eslint from '@eslint/js'
 import tseslint from 'typescript-eslint'
 import tsparser from '@typescript-eslint/parser'
 import obsidianmd from 'eslint-plugin-obsidianmd'
@@ -17,7 +16,6 @@ export default [
 			'src/old ui',
 		],
 	},
-	eslint.configs.recommended,
 	...obsidianmd.configs.recommended,
 	{
 		files: ['**/*.ts', '**/*.tsx'],
