@@ -82,6 +82,7 @@ The plugin heavily relies on Obsidian's internal APIs:
 - `app.internalPlugins.plugins.bookmarks` - Access bookmark data
 - `app.internalPlugins.plugins["file-explorer"].instance.revealInFolder()` - Reveal folders
 - `app.internalPlugins.plugins["global-search"].instance.openGlobalSearch()` - Execute searches
+- `app.internalPlugins.plugins["command-palette"].instance.modal.renderSuggestion` - Wrapped to show group command icons, since the palette ignores `command.icon`
 
 These are not official APIs and may change without warning.
 
@@ -92,6 +93,7 @@ interface QuickBookmarksSettings {
 	groupHandling: 'flatten' | 'separate'
 	enabledGroupCommands: Record<string, boolean> // Maps group title to enabled state
 	ignoredBookmarks: string[] // Array of bookmark IDs to hide
+	groupIcons: Record<string, string> // Maps group title to custom icon ID
 }
 ```
 

@@ -1,9 +1,13 @@
 import {
 	App,
+	type ExtraButtonComponent,
 	type FuzzyMatch,
 	FuzzySuggestModal,
+	getIconIds,
 	Plugin,
 	PluginSettingTab,
+	renderResults,
+	type SearchResult,
 	setIcon,
 	Setting,
 	type SettingDefinitionItem,
@@ -15,8 +19,8 @@ import {
 	type BookmarkItem,
 	bookmarkTypeIcon,
 	type BookmarkItemType,
-	bookmarkTypeLucideIcon,
 	buildBookmarkItems,
+	getBookmarkIcon,
 	getBookmarkId,
 	getBookmarkItems,
 	type InternalBookmarkItem,
@@ -24,11 +28,15 @@ import {
 	sanitizeId,
 } from './utils'
 
-function renderBookmarkSuggestion(item: BookmarkItem, el: HTMLElement): void {
-	el.empty()
-	const iconEl = el.createSpan({ cls: 'quick-bookmarks-suggestion-icon' })
-	setIcon(iconEl, bookmarkTypeLucideIcon(item.type))
-	el.createSpan({ text: item.title })
+function renderIconSuggestion(
+	el: HTMLElement,
+	icon: string,
+	text: string,
+	match: SearchResult
+): void {
+	el.addClass('quick-bookmarks-suggestion')
+	setIcon(el.createSpan({ cls: 'quick-bookmarks-suggestion-icon' }), icon)
+	renderResults(el.createSpan(), text, match)
 }
 
 interface InternalBookmarksPluginInstance {
@@ -48,6 +56,10 @@ interface InternalGlobalSearchInstance {
 	openGlobalSearch(query: string): void
 }
 
+interface InternalCommandPaletteModal {
+	renderSuggestion(match: FuzzyMatch<{ id: string; icon?: string }>, el: HTMLElement): void
+}
+
 interface InternalPlugins {
 	plugins: {
 		bookmarks?: InternalBookmarksPlugin
@@ -56,6 +68,9 @@ interface InternalPlugins {
 		}
 		'global-search'?: {
 			instance: InternalGlobalSearchInstance
+		}
+		'command-palette'?: {
+			instance: { modal?: InternalCommandPaletteModal }
 		}
 	}
 }
@@ -71,12 +86,14 @@ interface QuickBookmarksSettings {
 	groupHandling: 'flatten' | 'separate'
 	enabledGroupCommands: Record<string, boolean>
 	ignoredBookmarks: string[]
+	groupIcons: Record<string, string>
 }
 
 const DEFAULT_SETTINGS: QuickBookmarksSettings = {
 	groupHandling: 'separate',
 	enabledGroupCommands: {},
 	ignoredBookmarks: [],
+	groupIcons: {},
 }
 
 export default class QuickBookmarksPlugin extends Plugin {
@@ -105,6 +122,7 @@ export default class QuickBookmarksPlugin extends Plugin {
 		})
 
 		this.registerGroupCommands()
+		this.patchCommandPalette()
 		this.addSettingTab(new QuickBookmarksSettingTab(this.app, this))
 	}
 
@@ -140,6 +158,7 @@ export default class QuickBookmarksPlugin extends Plugin {
 				this.addCommand({
 					id: commandId,
 					name: `Open group: ${group.title}`,
+					icon: this.settings.groupIcons[group.title],
 					callback: () => {
 						new BookmarkGroupModal(this.app, this, group.title).open()
 					},
@@ -147,6 +166,39 @@ export default class QuickBookmarksPlugin extends Plugin {
 				this.groupCommands.add(commandId)
 			}
 		})
+	}
+
+	// The palette ignores `command.icon`, so showing one means wrapping its internal renderer.
+	// ponytail: restoring on unload clobbers any plugin that patched this after us; use a
+	// patch chain if that ever conflicts. No modal (internals changed) just means no icons.
+	patchCommandPalette() {
+		const modal = this.app.internalPlugins?.plugins['command-palette']?.instance.modal
+		if (!modal) return
+
+		const original = modal.renderSuggestion.bind(modal)
+		const groupCommandPrefix = `${this.manifest.id}:open-group-`
+		modal.renderSuggestion = (match, el) => {
+			original(match, el)
+			const { id, icon } = match.item
+			if (icon && id.startsWith(groupCommandPrefix)) {
+				const iconEl = createSpan({ cls: 'quick-bookmarks-suggestion-icon' })
+				setIcon(iconEl, icon)
+				el.prepend(iconEl)
+			}
+		}
+		this.register(() => {
+			modal.renderSuggestion = original
+		})
+	}
+
+	async setGroupIcon(title: string, icon: string | null) {
+		if (icon) {
+			this.settings.groupIcons[title] = icon
+		} else {
+			delete this.settings.groupIcons[title]
+		}
+		await this.saveSettings()
+		this.registerGroupCommands()
 	}
 
 	getAllBookmarks(): Array<{
@@ -240,12 +292,9 @@ class BookmarksSearchModal extends FuzzySuggestModal<BookmarkItem> {
 		return item.title
 	}
 
-	renderSuggestion(item: FuzzyMatch<BookmarkItem>, el: HTMLElement): void {
-		if (this.isFlatten()) {
-			renderBookmarkSuggestion(item.item, el)
-			return
-		}
-		el.setText(item.item.title)
+	renderSuggestion({ item, match }: FuzzyMatch<BookmarkItem>, el: HTMLElement): void {
+		const icon = getBookmarkIcon(item, this.plugin.settings.groupIcons)
+		renderIconSuggestion(el, icon, item.title, match)
 	}
 
 	onChooseItem(item: BookmarkItem): void {
@@ -282,9 +331,75 @@ class BookmarkGroupModal extends FuzzySuggestModal<BookmarkItem> {
 		return item.title
 	}
 
+	renderSuggestion({ item, match }: FuzzyMatch<BookmarkItem>, el: HTMLElement): void {
+		const icon = getBookmarkIcon(item, this.plugin.settings.groupIcons)
+		renderIconSuggestion(el, icon, item.title, match)
+	}
+
 	onChooseItem(item: BookmarkItem): void {
 		openBookmarkItem(this.app, this.plugin, item)
 	}
+}
+
+class IconPickerModal extends FuzzySuggestModal<string> {
+	onPick: (icon: string) => void
+
+	constructor(app: App, onPick: (icon: string) => void) {
+		super(app)
+		this.onPick = onPick
+		this.setPlaceholder('Search icons...')
+	}
+
+	getItems(): string[] {
+		return getIconIds()
+	}
+
+	getItemText(icon: string): string {
+		return icon.replace(/^lucide-/, '')
+	}
+
+	renderSuggestion({ item, match }: FuzzyMatch<string>, el: HTMLElement): void {
+		renderIconSuggestion(el, item, this.getItemText(item), match)
+	}
+
+	onChooseItem(icon: string): void {
+		this.onPick(icon)
+	}
+}
+
+function addGroupIconButtons(
+	setting: Setting,
+	group: { title: string },
+	plugin: QuickBookmarksPlugin
+): void {
+	let pickButton: ExtraButtonComponent
+	let resetButton: ExtraButtonComponent
+
+	const sync = () => {
+		const custom = plugin.settings.groupIcons[group.title]
+		pickButton.setIcon(
+			getBookmarkIcon({ type: 'group', title: group.title }, plugin.settings.groupIcons)
+		)
+		resetButton.setDisabled(!custom)
+	}
+	const update = async (icon: string | null) => {
+		await plugin.setGroupIcon(group.title, icon)
+		sync()
+	}
+
+	setting
+		.addExtraButton((button) => {
+			pickButton = button.setTooltip('Choose icon').onClick(() => {
+				new IconPickerModal(plugin.app, (icon) => void update(icon)).open()
+			})
+		})
+		.addExtraButton((button) => {
+			resetButton = button
+				.setIcon('rotate-ccw')
+				.setTooltip('Reset to default icon')
+				.onClick(() => void update(null))
+		})
+	sync()
 }
 
 function configureGroupToggle(
@@ -355,7 +470,7 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 			},
 			{
 				type: 'group',
-				heading: 'Group commands',
+				heading: 'Groups',
 				items:
 					groups.length === 0
 						? [
@@ -366,8 +481,9 @@ class QuickBookmarksSettingTab extends PluginSettingTab {
 							]
 						: groups.map((group) => ({
 								name: group.title,
-								desc: `Enable command to open "${group.title}" group`,
+								desc: `Choose an icon, and enable a command to open "${group.title}"`,
 								render: (setting: Setting) => {
+									addGroupIconButtons(setting, group, this.plugin)
 									setting.addToggle((toggle) => configureGroupToggle(toggle, group, this.plugin))
 								},
 							})),

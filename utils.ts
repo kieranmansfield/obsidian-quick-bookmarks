@@ -1,4 +1,4 @@
-export type BookmarkItemType = 'file' | 'folder' | 'search' | 'group'
+export type BookmarkItemType = 'file' | 'folder' | 'search' | 'group' | 'graph' | 'url'
 
 export interface InternalBookmarkItem {
 	type: BookmarkItemType
@@ -22,11 +22,26 @@ export function bookmarkTypeIcon(type: BookmarkItemType): string {
 	return '🔍'
 }
 
+const BOOKMARK_TYPE_ICONS: Partial<Record<string, string>> = {
+	file: 'file',
+	folder: 'folder',
+	group: 'folder-open',
+	search: 'search',
+	graph: 'git-fork',
+	url: 'link',
+}
+
 export function bookmarkTypeLucideIcon(type: BookmarkItemType): string {
-	if (type === 'file') return 'file'
-	if (type === 'folder') return 'folder'
-	if (type === 'group') return 'folder-open'
-	return 'search'
+	// Types come from an internal API, so Obsidian may add ones this map doesn't know yet.
+	return BOOKMARK_TYPE_ICONS[type] ?? 'bookmark'
+}
+
+export function getBookmarkIcon(
+	item: Pick<BookmarkItem, 'type' | 'title'>,
+	groupIcons: Record<string, string>
+): string {
+	const customIcon = item.type === 'group' ? groupIcons[item.title] : undefined
+	return customIcon ?? bookmarkTypeLucideIcon(item.type)
 }
 
 interface BookmarksPluginHost {

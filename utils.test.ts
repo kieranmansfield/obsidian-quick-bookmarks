@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
 	bookmarkTypeIcon,
+	bookmarkTypeLucideIcon,
+	type BookmarkItemType,
 	buildBookmarkItems,
+	getBookmarkIcon,
 	getBookmarkId,
 	getBookmarkItems,
 	getDisplayName,
@@ -25,6 +28,31 @@ describe('bookmarkTypeIcon', () => {
 
 	it('falls back to the search icon for group', () => {
 		expect(bookmarkTypeIcon('group')).toBe('🔍')
+	})
+})
+
+describe('bookmarkTypeLucideIcon', () => {
+	it('gives every known type its own icon', () => {
+		const types: BookmarkItemType[] = ['file', 'folder', 'group', 'search', 'graph', 'url']
+		expect(new Set(types.map(bookmarkTypeLucideIcon)).size).toBe(types.length)
+	})
+
+	it('falls back for a type Obsidian adds later', () => {
+		expect(bookmarkTypeLucideIcon('canvas' as BookmarkItemType)).toBe('bookmark')
+	})
+})
+
+describe('getBookmarkIcon', () => {
+	it('uses the custom icon for a matching group', () => {
+		expect(getBookmarkIcon({ type: 'group', title: 'Work' }, { Work: 'star' })).toBe('star')
+	})
+
+	it('uses the type icon for a group with no custom icon', () => {
+		expect(getBookmarkIcon({ type: 'group', title: 'Work' }, {})).toBe('folder-open')
+	})
+
+	it('ignores a custom icon on a non-group sharing the title', () => {
+		expect(getBookmarkIcon({ type: 'file', title: 'Work' }, { Work: 'star' })).toBe('file')
 	})
 })
 

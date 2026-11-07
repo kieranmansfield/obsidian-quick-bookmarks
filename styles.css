@@ -1,5 +1,16 @@
+.suggestion-item.quick-bookmarks-suggestion {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
 .quick-bookmarks-suggestion-icon {
 	display: inline-flex;
-	margin-right: 8px;
+	flex-shrink: 0;
 	color: var(--text-muted);
+}
+
+.suggestion-item.mod-complex > .quick-bookmarks-suggestion-icon {
+	align-self: center;
+	margin-right: 8px;
 }

@@ -36,6 +36,11 @@ Create dedicated commands for specific bookmark groups:
 -   Each enabled group gets its own command in the command palette
 -   Example: "Open group: Daily Notes" as a standalone command
 
+### 🎨 Icons
+
+-   Every result shows an icon for its bookmark type (file, folder, search, graph, link, or group)
+-   Give any top-level group a custom icon in settings; it appears in search, on the group's command in the command palette, and in the mobile toolbar
+
 ### 🚫 Hide Bookmarks
 
 Selectively hide bookmarks from search results:
@@ -117,7 +122,7 @@ Choose between:
 
 #### Group Commands
 
-Enable standalone commands for specific bookmark groups. Each enabled group will appear in the command palette.
+Enable standalone commands for specific bookmark groups. Each enabled group will appear in the command palette. Use the icon button on a group's row to choose a custom icon, and the reset button to go back to the default.
 
 #### Ignored Bookmarks
 
