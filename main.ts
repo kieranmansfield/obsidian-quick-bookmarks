@@ -222,9 +222,13 @@ class BookmarksSearchModal extends FuzzySuggestModal<BookmarkItem> {
 		this.app = app
 	}
 
+	private isFlatten(): boolean {
+		return this.forceFlatten || this.plugin.settings.groupHandling === 'flatten'
+	}
+
 	getItems(): BookmarkItem[] {
 		return buildBookmarkItems(getBookmarkItems(this.app), {
-			flatten: this.forceFlatten || this.plugin.settings.groupHandling === 'flatten',
+			flatten: this.isFlatten(),
 			isIgnored: (item) => this.plugin.isBookmarkIgnored(item),
 		})
 	}
@@ -234,7 +238,11 @@ class BookmarksSearchModal extends FuzzySuggestModal<BookmarkItem> {
 	}
 
 	renderSuggestion(item: FuzzyMatch<BookmarkItem>, el: HTMLElement): void {
-		renderBookmarkSuggestion(item.item, el)
+		if (this.isFlatten()) {
+			renderBookmarkSuggestion(item.item, el)
+			return
+		}
+		el.setText(item.item.title)
 	}
 
 	onChooseItem(item: BookmarkItem): void {
@@ -268,10 +276,6 @@ class BookmarkGroupModal extends FuzzySuggestModal<BookmarkItem> {
 
 	getItemText(item: BookmarkItem): string {
 		return item.title
-	}
-
-	renderSuggestion(item: FuzzyMatch<BookmarkItem>, el: HTMLElement): void {
-		renderBookmarkSuggestion(item.item, el)
 	}
 
 	onChooseItem(item: BookmarkItem): void {
